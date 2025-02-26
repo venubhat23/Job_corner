@@ -16,7 +16,7 @@ app = Flask(__name__)
 #     methods=["GET", "POST", "PUT", "DELETE"],
 #     allow_headers=["Content-Type", "Authorization"], 
 #     expose_headers=["Access-Control-Allow-Origin"])
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
+CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
 
 
 app.config.update(
@@ -168,7 +168,7 @@ def profile():
 
 @app.route('/jobs', methods=['GET'])
 def all_jobs():
-
+    pdb.set_trace()
     if 'loggedin' in session:
     
         cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
@@ -215,6 +215,44 @@ def post_job():
         cur.close()
         return jsonify({"message": "Job posted successfully"}), 201
     return jsonify({'error': 'User not authorized'}), 404
+@app.route('/apply', methods=['GET'])
+def apply_job():
+    pdb.set_trace()
+    if 'loggedin' in session:
+        data = request.json
+        user_id = data.get('user_id')  # This comes from accounts table
+        job_id = data.get('job_id')
+
+        if not user_id or not job_id:
+            return jsonify({"error": "Missing user_id or job_id"}), 400
+
+        cur = mysql.connection.cursor()
+
+        # Check if the user has already applied for the job 
+        cur.execute("SELECT id FROM applied_jobs WHERE user_id = %s AND job_id = %s", (user_id, job_id))
+        if cur.fetchone():
+            return jsonify({"error": "You have already applied for this job"}), 409
+
+        # Insert application
+        cur.execute("INSERT INTO applied_jobs (user_id, job_id) VALUES (%s, %s)", (user_id, job_id))
+        mysql.connection.commit()
+        cur.close()
+
+        return jsonify({"message": "Application submitted successfully!"})
+    return jsonify({"error": "Unauthorized"}), 403
+@app.route('/company/delete-job/<int:job_id>', methods=['DELETE'])
+def delete_job(job_id):
+    try:
+        cur = mysql.connection.cursor()
+            
+            # Delete job based on the ID
+        cur.execute("DELETE FROM jobs WHERE id = %s", (job_id,))
+        mysql.connection.commit()
+            
+        cur.close()
+        return jsonify({"message": "Job deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)  

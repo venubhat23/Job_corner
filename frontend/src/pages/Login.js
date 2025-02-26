@@ -38,7 +38,7 @@ const Login = () => {
     return (
     
     <div className="flex justify-center items-center h-screen bg-gray-100">
-      <h1 className="text-2xl font-bold absolute top-5 left-5">Welcome to Our App</h1>
+      <h1 className="text-2xl font-bold absolute top-5 left-5">Welcome to JobCorner</h1>
       <div className="bg-white p-6 shadow-lg rounded-lg w-96 text-center">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Login</h2>
 

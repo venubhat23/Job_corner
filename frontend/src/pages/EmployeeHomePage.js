@@ -1,24 +1,28 @@
 import { useNavigate } from "react-router-dom";
-// import { Link } from "react-router-dom";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+
+// Configure axios defaults
+axios.defaults.headers.common['Content-Type'] = 'application/json';
+axios.defaults.withCredentials = true;
 
 const EmployeeHomePage = () => {
   const [jobs, setJobs] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
-
   
   const handleLogout = () => {
-    navigate("/logout");
     sessionStorage.removeItem('loggedin');
-sessionStorage.removeItem('user_id');
+    sessionStorage.removeItem('user_id');
+    navigate("/logout");
   };
 
   useEffect(() => {
     const fetchJobs = async () => {
       try {
-        const response = await axios.get("http://127.0.0.1:5000/jobs");
+        const response = await axios.get("http://127.0.0.1:5000/jobs", {
+          withCredentials: true
+        });
         setJobs(response.data);
       } catch (error) {
         console.error("Error fetching jobs:", error);
@@ -27,31 +31,42 @@ sessionStorage.removeItem('user_id');
 
     fetchJobs();
   }, []);
+ 
   const handleApply = async (jobId) => {
-    const userId = sessionStorage.getItem("user_id"); // Ensure you get the actual logged-in user ID
-  
-    try {
-      const response = await fetch("http://localhost:5000/apply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, job_id: jobId }),
-        credentials: "include", // Ensure session handling
-      });
-  
-      const data = await response.json();
-  
-      if (response.status === 403) {
-        alert("Unauthorized. Redirecting to login...");
-        navigate("/login"); // Redirect to Login.js
-      } else if (response.status === 409) {
-        alert(data.error);
-      } else {
-        alert(data.message);
-      }
-    } catch (error) {
-      console.error("Error applying for job:", error);
+    const userId = sessionStorage.getItem("user_id"); 
+
+    if (!userId) {
+        alert("User not logged in. Redirecting to login...");
+        navigate("/login");
+        return;
     }
-  };
+
+    try {
+        // Changed from GET to POST and fixed how data is sent
+        const response = await axios.post("http://127.0.0.1:5000/apply", {
+          user_id: userId,
+          job_id: jobId
+        }, { 
+          withCredentials: true 
+        });
+        
+        alert(response.data.message || "Application submitted!");
+    } catch (error) {
+        console.error("Error applying for job:", error);
+        if (error.response) {
+            if (error.response.status === 403) {
+                alert("Unauthorized. Redirecting to login...");
+                navigate("/login");
+            } else if (error.response.status === 409) {
+                alert(error.response.data.error || "You've already applied for this job");
+            } else {
+                alert(error.response.data.error || "Something went wrong");
+            }
+        } else {
+            alert("Something went wrong. Please try again.");
+        }
+    }
+};
   
   // Filter jobs based on search term
   const filteredJobs = jobs.filter((job) => {
@@ -152,6 +167,7 @@ sessionStorage.removeItem('user_id');
               <th>Experience</th>
               <th>Package</th>
               <th>Location</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>

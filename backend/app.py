@@ -9,13 +9,7 @@ import pdb
 
 app = Flask(__name__)
 
-# CORS Configuration
-# CORS(app, 
-#     supports_credentials=True,
-#     origins=["http://localhost:3000"],
-#     methods=["GET", "POST", "PUT", "DELETE"],
-#     allow_headers=["Content-Type", "Authorization"], 
-#     expose_headers=["Access-Control-Allow-Origin"])
+
 CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
 
 
@@ -168,7 +162,7 @@ def profile():
 
 @app.route('/jobs', methods=['GET'])
 def all_jobs():
-    pdb.set_trace()
+    
     if 'loggedin' in session:
     
         cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
@@ -184,19 +178,7 @@ def all_jobs():
             cur.close()
     return jsonify({'error': 'User not authorized'}), 404
 
-# # Debug routes
-# @app.route('/debug/session', methods=['GET'])
-# def debug_session():
-#     return jsonify({
-#         'session': dict(session),
-#         'session_id': session.sid if hasattr(session, 'sid') else None
-#     })
 
-# @app.route('/debug/cookies', methods=['GET'])
-# def debug_cookies():
-#     return jsonify({
-#         'cookies': dict(request.cookies)
-#     })
 @app.route('/company/post-job', methods=['POST'])
 def post_job():
 
@@ -204,7 +186,7 @@ def post_job():
         if session.get('user_type') != 'company':
             return jsonify({"error": "Unauthorized"}), 403
         data = request.json
-        company_id = 1  # Replace with actual logged-in company ID
+        company_id = 1 
         cur = mysql.connection.cursor()
         cur.execute("""
             INSERT INTO jobs (title, company_id, skills, education, working_mode, working_hours, experience, package, location)
@@ -215,9 +197,9 @@ def post_job():
         cur.close()
         return jsonify({"message": "Job posted successfully"}), 201
     return jsonify({'error': 'User not authorized'}), 404
-@app.route('/apply', methods=['GET'])
+@app.route('/apply', methods=['POST'])
 def apply_job():
-    pdb.set_trace()
+   
     if 'loggedin' in session:
         data = request.json
         user_id = data.get('user_id')  # This comes from accounts table
@@ -228,7 +210,7 @@ def apply_job():
 
         cur = mysql.connection.cursor()
 
-        # Check if the user has already applied for the job 
+ 
         cur.execute("SELECT id FROM applied_jobs WHERE user_id = %s AND job_id = %s", (user_id, job_id))
         if cur.fetchone():
             return jsonify({"error": "You have already applied for this job"}), 409
@@ -253,6 +235,53 @@ def delete_job(job_id):
         return jsonify({"message": "Job deleted successfully"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/applied-jobs', methods=['GET'])
+def get_applied_jobs():
+  
+    if 'loggedin' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    user_id = session['user_id']
+    
+    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    try:
+        cur.execute("""
+            SELECT jobs.id AS job_id, jobs.title, jobs.location, jobs.package, companies.company_name 
+            FROM applied_jobs
+            JOIN jobs ON applied_jobs.job_id = jobs.id
+            JOIN companies ON jobs.company_id = companies.user_id
+            WHERE applied_jobs.user_id = %s
+        """, (user_id,))
+        
+        applied_jobs = cur.fetchall()
+        return jsonify({'applied_jobs': applied_jobs})
+    
+    finally:
+        cur.close()
+
+@app.route('/job/<int:job_id>', methods=['GET'])
+def get_job_details(job_id):
+    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    try:
+        cur.execute("""
+            SELECT jobs.*, companies.company_name 
+            FROM jobs 
+            JOIN companies ON jobs.company_id = companies.user_id
+            WHERE jobs.id = %s
+        """, (job_id,))
+        job = cur.fetchone()
+
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        return jsonify(job), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        cur.close()
+
 
 if __name__ == '__main__':
     app.run(debug=True)  
